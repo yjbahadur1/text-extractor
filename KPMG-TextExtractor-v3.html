@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPMG · Local Text Extractor</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --kpmg:#00338d;--kpmg2:#005eb8;--kpmg-light:#e8eef8;
+  --accent:#0091da;--accent-bg:#e6f4fc;
+  --green:#00875a;--green-bg:#e3f5ed;
+  --amber:#b45309;--amber-bg:#fef3c7;
+  --red:#c0392b;--red-bg:#fdecea;
+  --bg:#f0f2f7;--surface:#fff;--surface2:#f7f8fc;
+  --border:#dde1ec;--border2:#c5cad9;
+  --text:#1a2035;--mid:#4a5270;--dim:#8a91a8;--dimmer:#b8bfcf;
+  --shadow-sm:0 1px 4px rgba(0,0,0,.07),0 0 0 1px rgba(0,0,0,.04);
+  --shadow:0 4px 16px rgba(0,0,0,.09);
+  --r:14px;--rs:8px;
+  --font:'Outfit',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+html{font-size:15px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* HEADER */
+header{background:var(--kpmg);padding:0 28px;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,51,141,.3)}
+.h-left{display:flex;align-items:center;gap:16px}
+.kpmg-badge{font-weight:700;font-size:17px;letter-spacing:3px;color:#fff;background:rgba(255,255,255,.12);padding:4px 10px;border-radius:4px}
+.h-title{font-size:14px;font-weight:500;color:rgba(255,255,255,.85)}
+.h-div{width:1px;height:20px;background:rgba(255,255,255,.2)}
+.privacy-pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;color:rgba(255,255,255,.9)}
+
+/* LAYOUT */
+.app-body{display:grid;grid-template-columns:360px 1fr;flex:1;height:calc(100vh - 54px);min-height:0}
+
+/* LEFT PANEL */
+.left{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.panel-head{padding:18px 18px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+
+/* TIPS BANNER */
+.tips-banner{margin:14px 14px 0;background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1px solid #f0c040;border-radius:var(--rs);padding:12px 14px;flex-shrink:0}
+.tips-title{font-size:12px;font-weight:700;color:#7c5a00;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.tips-list{list-style:none;display:flex;flex-direction:column;gap:4px}
+.tips-list li{font-size:11px;color:#7c5a00;line-height:1.5;padding-left:14px;position:relative}
+.tips-list li::before{content:'→';position:absolute;left:0;opacity:.7}
+
+/* DROPZONE */
+.dropzone{border:2px dashed var(--border2);border-radius:var(--rs);padding:22px 14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);background:var(--accent-bg)}
+.dz-icon{font-size:28px;margin-bottom:8px;display:block}
+.dz-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+.dz-sub{font-size:11px;color:var(--dim);margin-bottom:12px;line-height:1.5}
+.btn-browse{display:inline-block;padding:6px 16px;background:var(--kpmg);color:#fff;font-family:var(--font);font-size:12px;font-weight:600;border:none;border-radius:6px;cursor:pointer;transition:background .15s}
+.btn-browse:hover{background:var(--kpmg2)}
+#fileInput{display:none}
+
+/* PREPROCESS SETTINGS */
+.settings{padding:14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:10px}
+.setting-row{display:flex;align-items:center;gap:10px}
+.setting-label{font-size:12px;font-weight:600;color:var(--mid);min-width:90px;flex-shrink:0}
+.select-s{flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:var(--font);font-size:12px;background:var(--surface2);color:var(--text);outline:none;cursor:pointer;transition:border-color .15s}
+.select-s:focus{border-color:var(--accent)}
+.hint-box{font-size:11px;color:var(--mid);line-height:1.5;padding:7px 10px;background:var(--accent-bg);border-radius:5px;border-left:3px solid var(--accent)}
+
+/* QUEUE */
+.queue-scroll{flex:1;overflow-y:auto;padding:12px 14px}
+.queue-empty{text-align:center;padding:32px 16px;color:var(--dim);font-size:13px;line-height:1.7}
+.q-count-bar{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:10px}
+.btn-clear{background:none;border:none;font-family:var(--font);font-size:11px;font-weight:600;color:var(--dim);cursor:pointer;padding:2px 6px;border-radius:4px;transition:all .15s}
+.btn-clear:hover{background:var(--red-bg);color:var(--red)}
+.q-list{display:flex;flex-direction:column;gap:7px}
+.q-card{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--surface);cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.q-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .15s}
+.q-card:hover{border-color:var(--accent);background:var(--accent-bg)}
+.q-card:hover::before{background:var(--accent)}
+.q-card.done::before{background:var(--green)}
+.q-card.error::before{background:var(--red)}
+.q-card.processing{border-color:var(--accent)}
+.q-card.processing::before{background:var(--accent)}
+.q-thumb{width:40px;height:40px;object-fit:cover;border-radius:5px;flex-shrink:0;border:1px solid var(--border);background:var(--bg)}
+.q-info{flex:1;min-width:0}
+.q-name{font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.q-meta{font-size:10px;color:var(--dim);display:flex;align-items:center;gap:5px}
+.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sdot.pending{background:var(--dim)}
+.sdot.processing{background:var(--accent);animation:blink 1s ease-in-out infinite}
+.sdot.done{background:var(--green)}
+.sdot.error{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.q-remove{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:3px;border-radius:4px;opacity:0;transition:all .15s}
+.q-card:hover .q-remove{opacity:1}
+.q-remove:hover{background:var(--red-bg);color:var(--red)}
+.q-prog{position:absolute;bottom:0;left:0;height:2px;background:var(--accent);transition:width .3s}
+
+/* PANEL FOOTER */
+.panel-foot{padding:12px 14px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:var(--font);font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.btn-primary{background:var(--kpmg);color:#fff;flex:1}
+.btn-primary:hover{background:var(--kpmg2)}
+.btn-ghost{background:var(--surface2);color:var(--mid);border:1px solid var(--border);flex:1}
+.btn-ghost:hover{background:var(--bg);border-color:var(--border2)}
+
+/* RIGHT PANEL */
+.right{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.r-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.r-title{font-size:13px;font-weight:600;color:var(--mid);flex:1}
+.btn-sm{padding:6px 13px;font-size:11px;border-radius:6px}
+.btn-outline{background:var(--surface);color:var(--mid);border:1.5px solid var(--border);font-weight:600}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.r-content{flex:1;overflow-y:auto;padding:20px}
+
+/* WELCOME */
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:40px}
+.w-icon{font-size:48px;margin-bottom:18px;opacity:.35}
+.w-title{font-size:20px;font-weight:700;color:var(--mid);margin-bottom:8px}
+.w-sub{font-size:13px;color:var(--dim);line-height:1.7;max-width:340px;margin-bottom:24px}
+.notice-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:540px}
+.notice-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:14px;text-align:left}
+.nc-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.nc-sub{font-size:11px;color:var(--dim);line-height:1.5}
+.nc-green{border-left:3px solid var(--green)}
+.nc-blue{border-left:3px solid var(--accent)}
+
+/* RESULT CARD */
+.result-card{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow-sm);margin-bottom:18px;overflow:hidden}
+.rc-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.rc-num{width:24px;height:24px;background:var(--kpmg);color:#fff;border-radius:5px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rc-name{font-size:13px;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px}
+.b-done{background:var(--green-bg);color:var(--green)}
+.b-error{background:var(--red-bg);color:var(--red)}
+.b-proc{background:var(--accent-bg);color:var(--accent)}
+.rc-body{display:grid;grid-template-columns:260px 1fr}
+
+/* Image preview pane with tabs */
+.img-pane{border-right:1px solid var(--border);background:#f4f6fa;display:flex;flex-direction:column}
+.img-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface2)}
+.img-tab{flex:1;padding:7px;font-size:11px;font-weight:600;text-align:center;cursor:pointer;border:none;background:none;font-family:var(--font);color:var(--dim);transition:all .15s}
+.img-tab.active{color:var(--kpmg);border-bottom:2px solid var(--kpmg)}
+.img-tab:hover:not(.active){color:var(--mid)}
+.img-view{padding:12px;flex:1;display:flex;flex-direction:column;gap:8px;align-items:center;overflow:hidden}
+.img-view img,.img-view canvas{width:100%;border-radius:5px;border:1px solid var(--border);box-shadow:var(--shadow-sm);display:block;max-height:260px;object-fit:contain;background:#fff}
+.img-note{font-size:10px;color:var(--dim);text-align:center;line-height:1.4}
+
+/* confidence indicator */
+.conf-bar-wrap{width:100%;padding:0 4px}
+.conf-label{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:3px}
+.conf-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.conf-fill{height:100%;border-radius:2px;transition:width .5s}
+
+/* text pane */
+.text-pane{display:flex;flex-direction:column;min-height:300px}
+.text-toolbar{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap}
+.pane-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);flex:1}
+.icon-btn{display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:5px;font-family:var(--font);font-size:11px;font-weight:600;color:var(--mid);padding:4px 9px;cursor:pointer;transition:all .15s}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.result-ta{flex:1;min-height:280px;border:none;outline:none;padding:14px 16px;font-family:var(--mono);font-size:12.5px;line-height:1.9;color:var(--text);background:var(--surface);resize:vertical;white-space:pre-wrap}
+.result-ta::placeholder{color:var(--dimmer)}
+.text-foot{display:flex;align-items:center;justify-content:space-between;padding:5px 12px;border-top:1px solid var(--border);background:var(--surface2)}
+.text-stats{font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+/* processing state */
+.proc-overlay{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:48px;background:var(--surface)}
+.spinner{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--kpmg);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-steps{display:flex;flex-direction:column;gap:6px;min-width:220px}
+.proc-step{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);padding:5px 10px;border-radius:6px;transition:all .3s}
+.proc-step.active{background:var(--accent-bg);color:var(--accent);font-weight:600}
+.proc-step.done{color:var(--green)}
+.proc-step .step-icon{font-size:13px;width:18px;text-align:center}
+.prog-wrap{width:200px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--kpmg),var(--accent));border-radius:2px;transition:width .4s}
+
+/* download bar */
+.dl-bar{background:linear-gradient(135deg,var(--kpmg),var(--kpmg2));border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:18px;box-shadow:var(--shadow)}
+.dl-text{flex:1}
+.dl-title{font-size:14px;font-weight:700;color:#fff;margin-bottom:2px}
+.dl-sub{font-size:11px;color:rgba(255,255,255,.7)}
+.btn-white{background:#fff;color:var(--kpmg);font-weight:700}
+.btn-white:hover{background:var(--kpmg-light)}
+.btn-w-out{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.4);font-weight:600}
+.btn-w-out:hover{background:rgba(255,255,255,.1)}
+
+/* toasts */
+#toasts{position:fixed;bottom:18px;right:18px;z-index:1000;display:flex;flex-direction:column;gap:7px}
+.toast{background:var(--text);color:#fff;font-size:13px;font-weight:500;padding:10px 16px;border-radius:8px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:t-in .2s ease;max-width:300px}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--red)}
+.toast.info{background:var(--kpmg)}
+@keyframes t-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+@media(max-width:900px){
+  .app-body{grid-template-columns:1fr}
+  .left{max-height:45vh}
+  .rc-body{grid-template-columns:1fr}
+  .img-pane{border-right:none;border-bottom:1px solid var(--border)}
+  .notice-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-left">
+    <div class="kpmg-badge">KPMG</div>
+    <div class="h-div"></div>
+    <div class="h-title">Creative Services · Text Extractor</div>
+  </div>
+  <div class="privacy-pill">🔒 100% Local · Zero Upload</div>
+</header>
+
+<div class="app-body">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="left">
+
+    <div class="panel-head">
+      <div class="panel-label">Upload Images</div>
+      <div class="dropzone" id="dropzone">
+        <span class="dz-icon">🖼️</span>
+        <div class="dz-title">Drop screenshots here</div>
+        <div class="dz-sub">PNG · JPG · WEBP · BMP · TIFF<br>Multiple files supported</div>
+        <button class="btn-browse" onclick="event.stopPropagation();document.getElementById('fileInput').click()">+ Choose Files</button>
+        <input type="file" id="fileInput" multiple accept="image/*,image/tiff">
+      </div>
+    </div>
+
+    <!-- TIPS -->
+    <div class="tips-banner">
+      <div class="tips-title">💡 Better accuracy tips</div>
+      <ul class="tips-list">
+        <li>Use high-resolution screenshots (zoom in before capturing)</li>
+        <li>Avoid JPEG compression — save as PNG for screenshots</li>
+        <li>For tables: <strong>Adobe Acrobat → OCR → Export Excel</strong> is best</li>
+        <li>For quick copy: <strong>OneNote → paste image → right-click → Copy Text</strong></li>
+      </ul>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="settings">
+      <div class="setting-row">
+        <span class="setting-label">Content Type</span>
+        <select class="select-s" id="modeSelect">
+          <option value="auto">Auto Detect</option>
+          <option value="slide">Presentation Slide</option>
+          <option value="table">Financial Table</option>
+          <option value="document">Dense Document</option>
+          <option value="screenshot">App / UI Screenshot</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Pre-process</span>
+        <select class="select-s" id="prepSelect">
+          <option value="smart">Smart (Auto)</option>
+          <option value="high_contrast">Boost Contrast</option>
+          <option value="sharpen">Sharpen + Denoise</option>
+          <option value="dark_bg">Dark Background Fix</option>
+          <option value="none">None (raw)</option>
+        </select>
+      </div>
+      <div class="hint-box" id="modeHint">Detects layout automatically. Good for most slides.</div>
+    </div>
+
+    <!-- QUEUE -->
+    <div class="queue-scroll" id="queueScroll">
+      <div class="queue-empty" id="queueEmpty">No images yet.<br>Upload screenshots to begin.</div>
+      <div id="queueList" style="display:none">
+        <div class="q-count-bar">
+          <span id="qCountLbl">0 Images</span>
+          <button class="btn-clear" onclick="clearAll()">Clear All</button>
+        </div>
+        <div class="q-list" id="qCards"></div>
+      </div>
+    </div>
+
+    <div class="panel-foot">
+      <button class="btn btn-primary" id="extractBtn" disabled onclick="extractAll()">⚡ Extract All</button>
+      <button class="btn btn-ghost" id="dlAllBtn" style="display:none" onclick="downloadAll()">⬇ Download All</button>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="right">
+    <div class="r-toolbar">
+      <span class="r-title" id="rTitle">Results appear here after extraction</span>
+      <button class="btn btn-outline btn-sm" id="copyAllBtn" style="display:none" onclick="copyAll()">📋 Copy All</button>
+    </div>
+    <div class="r-content" id="rContent">
+      <div class="welcome" id="welcome">
+        <div class="w-icon">📄</div>
+        <div class="w-title">Visual Text Extractor</div>
+        <div class="w-sub">Extracts text from screenshots using OCR with image preprocessing — everything runs inside your browser.</div>
+        <div class="notice-grid">
+          <div class="notice-card nc-green">
+            <div class="nc-title">✅ Best for tables</div>
+            <div class="nc-sub"><strong>Adobe Acrobat:</strong> Open image → Tools → Recognize Text → Export as Excel/Word</div>
+          </div>
+          <div class="notice-card nc-green">
+            <div class="nc-title">✅ Best for quick copy</div>
+            <div class="nc-sub"><strong>OneNote:</strong> Paste image → Right-click → "Copy Text from Picture"</div>
+          </div>
+          <div class="notice-card nc-blue">
+            <div class="nc-title">🔒 This app</div>
+            <div class="nc-sub">Uses Tesseract OCR with preprocessing. Good for mixed content slides. Zero data upload.</div>
+          </div>
+          <div class="notice-card nc-blue">
+            <div class="nc-title">📸 Better images</div>
+            <div class="nc-sub">Higher resolution = higher accuracy. Zoom in before screenshotting. Use PNG, not JPG.</div>
+          </div>
+        </div>
+      </div>
+      <div id="resultsList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<canvas id="offscreen" style="display:none"></canvas>
+
+<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+'use strict';
+
+// ── STATE ──────────────────────────────────────────────────────────────────────
+const S = { files:[], worker:null, processing:false };
+let uid = 0;
+
+const MODE_CONFIG = {
+  auto:       { psm:'3', hint:'Detects layout automatically. Good for most slides.' },
+  slide:      { psm:'3', hint:'Optimised for presentation slides: headings, bullets, mixed columns.' },
+  table:      { psm:'6', hint:'Row/column layout. Preserves spacing between cells and numbers.' },
+  document:   { psm:'4', hint:'Single-column dense text, reports, paragraphs.' },
+  screenshot: { psm:'11',hint:'Finds all text scattered across a UI screenshot or infographic.' },
+};
+
+const PREP_HINT = {
+  smart:         'Auto-detects image type and applies the best preprocessing.',
+  high_contrast: 'Stretches contrast and applies threshold — great for faded or washed-out screenshots.',
+  sharpen:       'Sharpens edges and reduces noise — best for slightly blurry images.',
+  dark_bg:       'Inverts dark-background slides (white text on dark) before OCR.',
+  none:          'No preprocessing — use if the image is already clean and high-contrast.',
+};
+
+document.getElementById('modeSelect').addEventListener('change', e => {
+  document.getElementById('modeHint').textContent = MODE_CONFIG[e.target.value]?.hint || '';
+});
+
+// ── DRAG & DROP ────────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropzone');
+const fi = document.getElementById('fileInput');
+dz.addEventListener('click',    ()  => fi.click());
+dz.addEventListener('dragover', e  => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave',()  => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+});
+fi.addEventListener('change', () => { addFiles([...fi.files]); fi.value = ''; });
+
+function addFiles(files) {
+  if (!files.length) return;
+  files.forEach(file => {
+    const id = ++uid;
+    const entry = { id, file, dataURL:null, prepURL:null, name:file.name, status:'pending', result:'', conf:0 };
+    S.files.push(entry);
+    const r = new FileReader();
+    r.onload = e => { entry.dataURL = e.target.result; renderQueue(); };
+    r.readAsDataURL(file);
+  });
+  renderQueue(); updateUI();
+  document.getElementById('welcome').style.display = 'none';
+  toast(`${files.length} image${files.length > 1?'s':''} added`, 'info');
+}
+
+// ── QUEUE ──────────────────────────────────────────────────────────────────────
+function renderQueue() {
+  const empty = document.getElementById('queueEmpty');
+  const list  = document.getElementById('queueList');
+  const cards = document.getElementById('qCards');
+  const lbl   = document.getElementById('qCountLbl');
+  if (!S.files.length) { empty.style.display='block'; list.style.display='none'; return; }
+  empty.style.display='none'; list.style.display='block';
+  lbl.textContent = `${S.files.length} Image${S.files.length>1?'s':''}`;
+  cards.innerHTML = S.files.map(f=>`
+    <div class="q-card ${f.status}" id="qc-${f.id}" onclick="scrollTo(${f.id})">
+      ${f.dataURL
+        ? `<img class="q-thumb" src="${f.dataURL}" alt="">`
+        : `<div class="q-thumb" style="display:flex;align-items:center;justify-content:center;font-size:20px">🖼</div>`}
+      <div class="q-info">
+        <div class="q-name" title="${f.name}">${f.name}</div>
+        <div class="q-meta">
+          <span class="sdot ${f.status}"></span>
+          ${{pending:'Waiting',processing:'Processing…',done:'Done',error:'Failed'}[f.status]}
+          ${f.conf>0?`· ${f.conf}% confidence`:''}
+        </div>
+      </div>
+      <button class="q-remove" onclick="removeFile(${f.id},event)">✕</button>
+    </div>`).join('');
+}
+
+function removeFile(id, e) {
+  e.stopPropagation();
+  S.files = S.files.filter(f=>f.id!==id);
+  document.getElementById(`result-${id}`)?.remove();
+  renderQueue(); updateUI();
+}
+
+function clearAll() {
+  if (S.processing) { toast('Wait for processing to finish','error'); return; }
+  if (!confirm('Remove all images and results?')) return;
+  S.files = [];
+  document.getElementById('resultsList').innerHTML = '';
+  document.getElementById('welcome').style.display = 'flex';
+  renderQueue(); updateUI();
+}
+
+function updateUI() {
+  const has   = S.files.length > 0;
+  const done  = S.files.filter(f=>f.status==='done');
+  const pend  = S.files.filter(f=>f.status==='pending'||f.status==='error');
+  document.getElementById('extractBtn').disabled = !has||S.processing||!pend.length;
+  document.getElementById('dlAllBtn').style.display = done.length?'flex':'none';
+  document.getElementById('copyAllBtn').style.display = done.length?'inline-flex':'none';
+  const doneC = done.length, total = S.files.length;
+  document.getElementById('rTitle').textContent = doneC
+    ? `${doneC} of ${total} extracted`
+    : total ? `${total} image${total>1?'s':''} queued — click Extract All`
+    : 'Results appear here after extraction';
+}
+
+// ── IMAGE PREPROCESSING ────────────────────────────────────────────────────────
+// This is the core improvement: better input = better OCR output.
+// Steps: upscale → grayscale → denoise → contrast stretch → threshold
+
+async function preprocessImage(dataURL, prepMode) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const SCALE = 2.5; // upscale significantly — Tesseract needs ~300dpi equivalent
+      const W = img.naturalWidth  * SCALE;
+      const H = img.naturalHeight * SCALE;
+
+      const cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      const ctx = cv.getContext('2d');
+
+      // Smooth upscaling
+      ctx.imageSmoothingEnabled  = true;
+      ctx.imageSmoothingQuality  = 'high';
+      ctx.drawImage(img, 0, 0, W, H);
+
+      let px = ctx.getImageData(0, 0, W, H);
+
+      if (prepMode === 'none') { resolve({ dataURL: cv.toDataURL('image/png'), canvas: cv }); return; }
+
+      // 1. Grayscale (all modes)
+      px = toGrayscale(px);
+
+      // 2. Mode-specific pipeline
+      if (prepMode === 'dark_bg') {
+        px = invertIfDark(px, true); // force invert
+      } else if (prepMode === 'smart') {
+        px = invertIfDark(px, false); // invert only if bg is dark
+      }
+
+      if (prepMode === 'sharpen') {
+        px = convolve(px, W, H, KERNEL_SHARPEN);
+        px = denoise(px, W, H);
+      } else if (prepMode !== 'none') {
+        px = unsharpMask(px, W, H, 1.0, 1.5); // gentle sharpening for others
+      }
+
+      // 3. Contrast stretch + Otsu threshold (all except 'none')
+      px = stretchContrast(px);
+      const thresh = otsuThreshold(px);
+      px = binarize(px, thresh);
+
+      ctx.putImageData(px, 0, 0);
+      resolve({ dataURL: cv.toDataURL('image/png'), canvas: cv });
+    };
+    img.src = dataURL;
+  });
+}
+
+// ── Grayscale ──
+function toGrayscale(px) {
+  const d = px.data;
+  for (let i=0; i<d.length; i+=4) {
+    const g = Math.round(d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114);
+    d[i]=d[i+1]=d[i+2]=g;
+  }
+  return px;
+}
+
+// ── Invert if background is dark ──
+function invertIfDark(px, force) {
+  const d = px.data;
+  // Sample 400 pixels to estimate background luminance
+  let sum=0, count=0;
+  for (let i=0; i<d.length; i+=Math.floor(d.length/400)*4) {
+    sum += d[i]; count++;
+  }
+  const avgLum = sum/count;
+  if (force || avgLum < 128) { // dark background → invert
+    for (let i=0; i<d.length; i+=4) { d[i]=255-d[i]; d[i+1]=255-d[i+1]; d[i+2]=255-d[i+2]; }
+  }
+  return px;
+}
+
+// ── Contrast stretch ──
+function stretchContrast(px) {
+  const d = px.data;
+  let min=255, max=0;
+  for (let i=0; i<d.length; i+=4) { if(d[i]<min)min=d[i]; if(d[i]>max)max=d[i]; }
+  if (max===min) return px;
+  const scale = 255/(max-min);
+  for (let i=0; i<d.length; i+=4) {
+    const v = Math.round((d[i]-min)*scale);
+    d[i]=d[i+1]=d[i+2]=Math.max(0,Math.min(255,v));
+  }
+  return px;
+}
+
+// ── Otsu's threshold ──
+function otsuThreshold(px) {
+  const d = px.data;
+  const hist = new Array(256).fill(0);
+  for (let i=0; i<d.length; i+=4) hist[d[i]]++;
+  const total = d.length/4;
+  let sum=0; for (let i=0;i<256;i++) sum+=i*hist[i];
+  let sumB=0, wB=0, wF=0, max=0, t=128;
+  for (let i=0;i<256;i++) {
+    wB+=hist[i]; if(!wB) continue;
+    wF=total-wB; if(!wF) break;
+    sumB+=i*hist[i];
+    const mB=sumB/wB, mF=(sum-sumB)/wF;
+    const between=wB*wF*(mB-mF)*(mB-mF);
+    if (between>max) { max=between; t=i; }
+  }
+  return t;
+}
+
+// ── Binary threshold ──
+function binarize(px, thresh) {
+  const d = px.data;
+  for (let i=0; i<d.length; i+=4) {
+    const v = d[i]>thresh ? 255 : 0;
+    d[i]=d[i+1]=d[i+2]=v;
+  }
+  return px;
+}
+
+// ── Denoise (median-like via 3x3 average on grayscale) ──
+function denoise(px, W, H) {
+  const src = new Uint8ClampedArray(px.data);
+  const d = px.data;
+  for (let y=1;y<H-1;y++) for (let x=1;x<W-1;x++) {
+    let sum=0;
+    for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++) {
+      sum += src[((y+dy)*W+(x+dx))*4];
+    }
+    const v = Math.round(sum/9);
+    const idx=(y*W+x)*4;
+    d[idx]=d[idx+1]=d[idx+2]=v;
+  }
+  return px;
+}
+
+// ── Convolution ──
+const KERNEL_SHARPEN = [0,-1,0,-1,5,-1,0,-1,0];
+
+function convolve(px, W, H, kernel) {
+  const src = new Uint8ClampedArray(px.data);
+  const d = px.data;
+  for (let y=1;y<H-1;y++) for (let x=1;x<W-1;x++) {
+    let v=0, ki=0;
+    for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++) {
+      v += src[((y+dy)*W+(x+dx))*4] * kernel[ki++];
+    }
+    const idx=(y*W+x)*4;
+    d[idx]=d[idx+1]=d[idx+2]=Math.max(0,Math.min(255,v));
+  }
+  return px;
+}
+
+// ── Unsharp mask (sharpen without over-sharpening) ──
+function unsharpMask(px, W, H, sigma, amount) {
+  // Simple approximation: subtract blurred version from original
+  const orig = new Uint8ClampedArray(px.data);
+  const blurred = new Uint8ClampedArray(px.data);
+  const d = px.data;
+  // 3x3 box blur for the blurred copy
+  for (let y=1;y<H-1;y++) for (let x=1;x<W-1;x++) {
+    let s=0;
+    for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++) s+=orig[((y+dy)*W+(x+dx))*4];
+    blurred[(y*W+x)*4] = Math.round(s/9);
+  }
+  for (let i=0;i<d.length;i+=4) {
+    const v = Math.max(0,Math.min(255, orig[i] + amount*(orig[i]-blurred[i])));
+    d[i]=d[i+1]=d[i+2]=Math.round(v);
+  }
+  return px;
+}
+
+// ── WORKER ─────────────────────────────────────────────────────────────────────
+async function getWorker() {
+  if (S.worker) return S.worker;
+  toast('Loading OCR engine… (first run ~10s)', 'info');
+  S.worker = await Tesseract.createWorker('eng', 1, { logger:()=>{} });
+  return S.worker;
+}
+
+// ── EXTRACT ALL ────────────────────────────────────────────────────────────────
+async function extractAll() {
+  const pending = S.files.filter(f=>f.status==='pending'||f.status==='error');
+  if (!pending.length) return;
+  S.processing = true;
+  document.getElementById('extractBtn').disabled = true;
+  let worker;
+  try { worker = await getWorker(); }
+  catch(e) { toast('OCR engine failed to load','error'); S.processing=false; updateUI(); return; }
+
+  const mode = document.getElementById('modeSelect').value;
+  const prep = document.getElementById('prepSelect').value;
+  const psm  = MODE_CONFIG[mode]?.psm || '3';
+
+  for (const entry of pending) await extractOne(entry, worker, psm, prep, mode);
+
+  S.processing = false;
+  updateUI();
+  const done = S.files.filter(f=>f.status==='done').length;
+  if (done) { toast(`✓ ${done} file${done>1?'s':''} extracted`, 'success'); showDlBar(); }
+}
+
+async function extractOne(entry, worker, psm, prep, mode) {
+  entry.status   = 'processing';
+  entry.progress = 0;
+  renderQueue();
+  upsertCard(entry);
+
+  try {
+    // Step 1: Preprocess
+    setStep(entry.id, 0);
+    const { dataURL: prepURL } = await preprocessImage(entry.dataURL, prep);
+    entry.prepURL = prepURL;
+
+    // Step 2: Configure Tesseract
+    setStep(entry.id, 1);
+    const isTable = mode === 'table';
+    await worker.setParameters({
+      tessedit_pageseg_mode:     psm,
+      tessedit_char_whitelist:   '',        // allow ALL chars — digits, %, $, etc.
+      preserve_interword_spaces: isTable?'1':'0',
+      tessedit_do_invert:        '0',       // we handle inversion in our pipeline
+      // Tell Tesseract to trust its own segmentation
+      textord_heavy_nr:          '0',
+      edges_max_children_per_outline: '40',
+    });
+
+    // Step 3: OCR
+    setStep(entry.id, 2);
+    const result = await worker.recognize(prepURL, {}, { blocks:true });
+
+    // Step 4: Build output
+    setStep(entry.id, 3);
+    entry.result = isTable ? buildTableText(result.data) : buildText(result.data);
+    entry.conf   = Math.round(result.data.confidence || 0);
+    entry.status = 'done';
+
+  } catch(e) {
+    entry.status = 'error';
+    entry.result = `[Failed: ${e.message}]`;
+  }
+
+  renderQueue();
+  upsertCard(entry);
+  updateUI();
+}
+
+function setStep(id, step) {
+  const steps = document.querySelectorAll(`#result-${id} .proc-step`);
+  steps.forEach((el,i) => {
+    el.classList.remove('active','done');
+    if (i < step) el.classList.add('done');
+    if (i === step) el.classList.add('active');
+  });
+  const fill = document.querySelector(`#result-${id} .prog-fill`);
+  if (fill) fill.style.width = `${(step/3)*100}%`;
+}
+
+// ── TEXT RECONSTRUCTION ────────────────────────────────────────────────────────
+function buildText(data) {
+  if (!data?.blocks?.length) return data?.text || '';
+  const lines = [];
+  for (const blk of data.blocks) {
+    for (const para of blk.paragraphs||[]) {
+      for (const line of para.lines||[]) {
+        const txt = (line.words||[])
+          .filter(w=>w.text?.trim())  // no confidence filter — numbers score low
+          .map(w=>w.text).join(' ');
+        if (txt.trim()) lines.push(txt);
+      }
+      lines.push('');
+    }
+    lines.push('');
+  }
+  return lines.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+
+function buildTableText(data) {
+  // Use word bounding boxes to reconstruct rows and preserve column alignment
+  const words = (data?.words||[]).filter(w=>w.text?.trim());
+  if (!words.length) return buildText(data);
+
+  const ROW_TOL = 14; // px — words within this vertical range = same row
+  const rows = [];
+  for (const w of words) {
+    const midY = (w.bbox.y0+w.bbox.y1)/2;
+    let hit = rows.find(r=>Math.abs(r.cy-midY)<=ROW_TOL);
+    if (hit) {
+      hit.words.push(w);
+      hit.cy = hit.words.reduce((s,x)=>(x.bbox.y0+x.bbox.y1)/2+s,0)/hit.words.length;
+    } else {
+      rows.push({ cy:midY, words:[w] });
+    }
+  }
+  rows.sort((a,b)=>a.cy-b.cy);
+  for (const r of rows) r.words.sort((a,b)=>a.bbox.x0-b.bbox.x0);
+
+  // Detect column positions via gaps between words' x0
+  // Then pad each cell to the column width for alignment
+  const allX = [...new Set(rows.flatMap(r=>r.words.map(w=>w.bbox.x0)))].sort((a,b)=>a-b);
+  const cols = [allX[0]];
+  for (let i=1;i<allX.length;i++) if (allX[i]-allX[i-1]>28) cols.push(allX[i]);
+
+  const COL_W = 18; // characters per column in output
+  const out = [];
+  let prevCy = null;
+  for (const row of rows) {
+    if (prevCy!==null && row.cy-prevCy > 32) out.push(''); // section separator
+    prevCy = row.cy;
+
+    // Map each word to its nearest column
+    const cells = new Array(cols.length).fill('');
+    for (const w of row.words) {
+      let ci = 0;
+      for (let i=0;i<cols.length;i++) if (Math.abs(w.bbox.x0-cols[i]) < Math.abs(w.bbox.x0-cols[ci])) ci=i;
+      cells[ci] = (cells[ci]+' '+w.text).trim();
+    }
+    out.push(cells.map(c=>c.padEnd(COL_W)).join('  ').trimEnd());
+  }
+  return out.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+
+// ── RESULT CARDS ──────────────────────────────────────────────────────────────
+function upsertCard(entry) {
+  const list = document.getElementById('resultsList');
+  let card = document.getElementById(`result-${entry.id}`);
+  const idx = S.files.findIndex(f=>f.id===entry.id)+1;
+
+  if (!card) {
+    card = document.createElement('div');
+    card.className='result-card'; card.id=`result-${entry.id}`;
+    const before = [...list.querySelectorAll('.result-card')].find(c=>parseInt(c.id.split('-')[1])>entry.id);
+    if (before) list.insertBefore(card,before); else list.appendChild(card);
+  }
+
+  if (entry.status==='processing') {
+    card.innerHTML=`
+      <div class="rc-header">
+        <div class="rc-num">${idx}</div>
+        <div class="rc-name">${entry.name}</div>
+        <span class="rc-badge b-proc">Processing…</span>
+      </div>
+      <div class="rc-body">
+        <div class="proc-overlay">
+          <div class="spinner"></div>
+          <div class="proc-steps">
+            <div class="proc-step active" data-i="0"><span class="step-icon">🖼</span> Preprocessing image</div>
+            <div class="proc-step" data-i="1"><span class="step-icon">⚙️</span> Configuring engine</div>
+            <div class="proc-step" data-i="2"><span class="step-icon">🔍</span> Running OCR</div>
+            <div class="proc-step" data-i="3"><span class="step-icon">📝</span> Reconstructing layout</div>
+          </div>
+          <div class="prog-wrap"><div class="prog-fill" style="width:0%"></div></div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const wc  = (entry.result.trim().split(/\s+/).filter(Boolean).length);
+  const lc  = entry.result.split('\n').length;
+  const cc  = entry.result.length;
+  const confColor = entry.conf>80?'var(--green)':entry.conf>60?'var(--amber)':'var(--red)';
+
+  card.innerHTML=`
+    <div class="rc-header">
+      <div class="rc-num">${idx}</div>
+      <div class="rc-name">${entry.name}</div>
+      <span class="rc-badge ${entry.status==='done'?'b-done':'b-error'}">
+        ${entry.status==='done'?'✓ Done':'✕ Failed'}
+      </span>
+      <button class="icon-btn" onclick="copyText(${entry.id})">📋 Copy</button>
+      <button class="icon-btn" onclick="dlTxt(${entry.id})">⬇ .txt</button>
+    </div>
+    <div class="rc-body">
+      <div class="img-pane">
+        <div class="img-tabs">
+          <button class="img-tab active" onclick="showTab(${entry.id},'orig',this)">Original</button>
+          <button class="img-tab" onclick="showTab(${entry.id},'prep',this)">Processed</button>
+        </div>
+        <div class="img-view" id="iv-${entry.id}">
+          <img id="orig-${entry.id}" src="${entry.dataURL}" alt="original">
+          <img id="prep-${entry.id}" src="${entry.prepURL||entry.dataURL}" alt="preprocessed" style="display:none">
+          <div class="img-note">Click "Processed" to see what the OCR engine received</div>
+        </div>
+        ${entry.status==='done'?`
+        <div style="padding:0 12px 10px">
+          <div class="conf-bar-wrap">
+            <div class="conf-label"><span>OCR Confidence</span><strong style="color:${confColor}">${entry.conf}%</strong></div>
+            <div class="conf-bar"><div class="conf-fill" style="width:${entry.conf}%;background:${confColor}"></div></div>
+          </div>
+          <div style="font-size:10px;color:var(--dim);margin-top:5px;line-height:1.5">
+            ${entry.conf<60?'⚠ Low confidence — try a different Preprocess mode or use Adobe Acrobat / OneNote for this image.'
+              :entry.conf<80?'ℹ Moderate confidence — review numbers and symbols carefully.'
+              :'✓ Good confidence.'}
+          </div>
+        </div>`:``}
+      </div>
+      <div class="text-pane">
+        <div class="text-toolbar">
+          <span class="pane-lbl">Extracted Text</span>
+          <button class="icon-btn" onclick="reExtract(${entry.id})">↺ Re-scan</button>
+          <button class="icon-btn" onclick="clearTxt(${entry.id})">✕ Clear</button>
+        </div>
+        <textarea class="result-ta" id="ta-${entry.id}" oninput="onEdit(${entry.id})"
+          placeholder="No text found. Try a different Content Type or Preprocess mode."
+        >${esc(entry.result)}</textarea>
+        <div class="text-foot">
+          <span class="text-stats" id="ts-${entry.id}">${wc} words · ${lc} lines · ${cc} chars</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showTab(id, which, btn) {
+  const orig = document.getElementById(`orig-${id}`);
+  const prep = document.getElementById(`prep-${id}`);
+  if (orig&&prep) {
+    orig.style.display = which==='orig'?'block':'none';
+    prep.style.display = which==='prep'?'block':'none';
+  }
+  btn.closest('.img-tabs').querySelectorAll('.img-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function onEdit(id) {
+  const ta = document.getElementById(`ta-${id}`);
+  const ts = document.getElementById(`ts-${id}`);
+  const e  = S.files.find(f=>f.id===id);
+  if(!ta||!e) return;
+  e.result = ta.value;
+  const w=ta.value.trim().split(/\s+/).filter(Boolean).length;
+  const l=ta.value.split('\n').length;
+  if(ts) ts.textContent=`${w} words · ${l} lines · ${ta.value.length} chars`;
+}
+
+function copyText(id) {
+  const ta=document.getElementById(`ta-${id}`);
+  navigator.clipboard.writeText(ta?ta.value:'').then(()=>toast('Copied!','success'));
+}
+
+function dlTxt(id) {
+  const e=S.files.find(f=>f.id===id);
+  const ta=document.getElementById(`ta-${id}`);
+  const txt=ta?ta.value:e?.result||'';
+  const name=(e?.name||'extract').replace(/\.[^.]+$/,'')+'_extracted.txt';
+  dlFile(txt,name);
+}
+
+function downloadAll() {
+  const done=S.files.filter(f=>f.status==='done');
+  done.forEach((f,i)=>setTimeout(()=>{
+    const ta=document.getElementById(`ta-${f.id}`);
+    dlFile(ta?ta.value:f.result, f.name.replace(/\.[^.]+$/,'')+'_extracted.txt');
+  },i*350));
+  toast(`Downloading ${done.length} files…`,'info');
+}
+
+function copyAll() {
+  const parts=S.files.filter(f=>f.status==='done').map(f=>{
+    const ta=document.getElementById(`ta-${f.id}`);
+    return `━━━ ${f.name} ━━━\n${ta?ta.value:f.result}`;
+  });
+  navigator.clipboard.writeText(parts.join('\n\n')).then(()=>toast('All text copied','success'));
+}
+
+async function reExtract(id) {
+  const e=S.files.find(f=>f.id===id);
+  if(!e||S.processing) return;
+  e.status='pending'; S.processing=true; updateUI();
+  try {
+    const w=await getWorker();
+    const mode=document.getElementById('modeSelect').value;
+    const prep=document.getElementById('prepSelect').value;
+    const psm=MODE_CONFIG[mode]?.psm||'3';
+    await extractOne(e,w,psm,prep,mode);
+  } catch(err){ toast('Error: '+err.message,'error'); }
+  S.processing=false; updateUI();
+}
+
+function clearTxt(id) {
+  const ta=document.getElementById(`ta-${id}`); if(ta)ta.value='';
+  const e=S.files.find(f=>f.id===id); if(e)e.result='';
+}
+
+function showDlBar() {
+  if (document.getElementById('dlBar')) return;
+  const bar=document.createElement('div');
+  bar.id='dlBar'; bar.className='dl-bar';
+  bar.innerHTML=`
+    <div class="dl-text">
+      <div class="dl-title">🎉 Extraction complete</div>
+      <div class="dl-sub">Download individual .txt files or grab them all at once</div>
+    </div>
+    <button class="btn btn-white btn-sm" onclick="downloadAll()">⬇ Download All</button>
+    <button class="btn btn-w-out btn-sm" onclick="copyAll()">📋 Copy All</button>`;
+  document.getElementById('resultsList').insertBefore(bar,document.getElementById('resultsList').firstChild);
+}
+
+function scrollTo(id) { document.getElementById(`result-${id}`)?.scrollIntoView({behavior:'smooth',block:'start'}); }
+
+// ── UTILS ──────────────────────────────────────────────────────────────────────
+function esc(t){ return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function dlFile(content,name){ const a=document.createElement('a');a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(content);a.download=name;a.click(); }
+function toast(msg,type='info'){
+  const el=document.createElement('div');
+  el.className=`toast ${type}`; el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+</script>
+</body>
+</html>
